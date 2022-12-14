@@ -51,11 +51,20 @@ class DBStorage:
                     new_dict[key] = obj
         return (new_dict)
 
-    def get(self, cls, id):
-        """Retrieves one object"""
-        if type(cls) != str or type(id) != str:
-            return None
-        return self.all(cls).get(cls + '.' + id)
+   def get(self, cls, id):
+        """" A method to retrieve one object
+        grab_obj = self.all(cls).values()
+        for obj in grab_obj:
+            if obj.id == str(id):
+                return obj
+        return None
+        """
+        grab_obj = models.storage.all(cls)
+        for k, v in grab_obj.items():
+            getstr = cls + '.' + id
+            if k == getstr:
+                return (v)
+        return (None)
 
     def count(self, cls=None):
         """Counts the number of objects in storage"""
