@@ -1,110 +1,118 @@
 #!/usr/bin/python3
-'''
-    Define class DatabaseStorage
-'''
-from os import getenv
-from sqlalchemy import create_engine, MetaData
-from sqlalchemy.orm import sessionmaker, scoped_session
-import models
-from models.state import State
-from models.city import City
+"""
+This is the db_storage module
+"""
 from models.base_model import Base
+from sqlalchemy import create_engine
+from sqlalchemy.orm import (sessionmaker, scoped_session)
+from os import getenv
+from models.user import User
+from models.amenity import Amenity
+from models.city import City
+from models.place import Place
+from models.review import Review
+from models.state import State
 
 
 class DBStorage:
-    '''
-        Create SQLalchemy database
-    '''
+    """
+    The storage system for HBnB
+    Uses MySQL databases
+    """
     __engine = None
     __session = None
+    __Session = None
 
     def __init__(self):
-        '''
-            Create engine and link to MySQL databse (hbnb_dev, hbnb_dev_db)
-        '''
-        user = getenv("HBNB_MYSQL_USER")
-        pwd = getenv("HBNB_MYSQL_PWD")
-        host = getenv("HBNB_MYSQL_HOST")
-        db = getenv("HBNB_MYSQL_DB")
-        envv = getenv("HBNB_ENV", "none")
+        """
+        initializes engine
+        """
         self.__engine = create_engine('mysql+mysqldb://{}:{}@{}/{}'.format(
-            user, pwd, host, db), pool_pre_ping=True)
-        if envv == 'test':
+            getenv('HBNB_MYSQL_USER'),
+            getenv('HBNB_MYSQL_PWD'),
+            getenv('HBNB_MYSQL_HOST'),
+            getenv('HBNB_MYSQL_DB')))
+        self.__models_available = {"User": User,
+                                   "Amenity": Amenity, "City": City,
+                                   "Place": Place, "Review": Review,
+                                   "State": State}
+        if getenv('HBNB_MYSQL_ENV', 'not') == 'test':
             Base.metadata.drop_all(self.__engine)
 
     def all(self, cls=None):
-        '''
-            Query current database session
-        '''
-        db_dict = {}
-
-        if cls is not None and cls is not "":
-            objs = self.__session.query(models.classes[cls]).all()
-            for obj in objs:
-                key = "{}.{}".format(obj.__class__.__name__, obj.id)
-                db_dict[key] = obj
-            return db_dict
+        """
+        returns a dictionary of all the class objects
+        """
+        orm_objects = {}
+        if cls:
+            for k in self.__session.query(self.__models_available[cls]):
+                orm_objects[k.__dict__['id']] = k
         else:
-            for k, v in models.classes.items():
-                if k != "BaseModel":
-                    objs = self.__session.query(v).all()
-                    if len(objs) > 0:
-                        for obj in objs:
-                            key = "{}.{}".format(obj.__class__.__name__,
-                                                 obj.id)
-                            db_dict[key] = obj
-            return db_dict
+            for i in self.__models_available.values():
+                j = self.__session.query(i).all()
+                if j:
+                    for k in j:
+                        orm_objects[k.__dict__['id']] = k
+        return orm_objects
 
     def new(self, obj):
-        '''
-            Add object to current database session
-        '''
+        """
+        adds a new obj to the session
+        """
         self.__session.add(obj)
 
     def save(self):
-        '''
-            Commit all changes of current database session
-        '''
+        """
+        saves the objects fom the current session
+        """
         self.__session.commit()
 
     def delete(self, obj=None):
-        '''
-            Delete from current database session
-        '''
+        """
+        deletes an object from the current session
+        """
         if obj is not None:
             self.__session.delete(obj)
+            self.save()
 
     def reload(self):
-        '''
-            Commit all changes of current database session
-        '''
-        self.__session = Base.metadata.create_all(self.__engine)
-        factory = sessionmaker(bind=self.__engine, expire_on_commit=False)
-        Session = scoped_session(factory)
-        self.__session = Session()
-
-    def get(self, cls, id):
-        """" A method to retrieve one object
-        grab_obj = self.all(cls).values()
-        for obj in grab_obj:
-            if obj.id == str(id):
-                return obj
-        return None
         """
-        grab_obj = models.storage.all(cls)
-        for k, v in grab_obj.items():
-            getstr = cls + '.' + id
-            if k == getstr:
-                return (v)
-        return (None)
-
-    def count(self, cls=None):
-        """ A method to count the number of objects in storage """
-        num_obj = models.storage.all(cls)
-        return len(num_obj)
+        WARNING!!!! I'm not sure if Base.metadata.create_all needs to
+        be in the init method
+        """
+        Base.metadata.create_all(self.__engine)
+        self.__session = scoped_session(sessionmaker(bind=self.__engine,
+                                                     expire_on_commit=False))
 
     def close(self):
-        '''
-            Remove private session attribute
-        '''
-        self.__session.close()
+        """
+        close a session
+        """
+        self.__session.remove()
+
+    def get(self, cls, id):
+        """
+        Get the specified object by class and id
+        """
+        obj = None
+        if cls:
+            get_cls = self.__models_available.get(cls)
+            if get_cls:
+                obj = self.__session.query(get_cls).filter_by(id=id).first()
+        return obj
+
+    def count(self, cls=None):
+        """
+        Count the number of a given class in the database
+        """
+        orm_objects = {}
+        if cls:
+            for k in self.__session.query(self.__models_available[cls]):
+                orm_objects[k.__dict__['id']] = k
+        else:
+            for i in self.__models_available.values():
+                j = self.__session.query(i).all()
+                if j:
+                    for k in j:
+                        orm_objects[k.__dict__['id']] = k
+        return len(orm_objects)
