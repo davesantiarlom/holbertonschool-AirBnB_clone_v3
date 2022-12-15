@@ -1,118 +1,97 @@
 #!/usr/bin/python3
 """
-This is the db_storage module
+Contains the class DBStorage
 """
-from models.base_model import Base
-from sqlalchemy import create_engine
-from sqlalchemy.orm import (sessionmaker, scoped_session)
-from os import getenv
-from models.user import User
+
+import models
 from models.amenity import Amenity
+from models.base_model import BaseModel, Base
 from models.city import City
 from models.place import Place
 from models.review import Review
 from models.state import State
+from models.user import User
+from os import getenv
+import sqlalchemy
+from sqlalchemy import create_engine
+from sqlalchemy.orm import scoped_session, sessionmaker
+
+classes = {"Amenity": Amenity, "City": City,
+           "Place": Place, "Review": Review, "State": State, "User": User}
 
 
 class DBStorage:
-    """
-    The storage system for HBnB
-    Uses MySQL databases
-    """
+    """interaacts with the MySQL database"""
     __engine = None
     __session = None
-    __Session = None
 
     def __init__(self):
-        """
-        initializes engine
-        """
-        self.__engine = create_engine('mysql+mysqldb://{}:{}@{}/{}'.format(
-            getenv('HBNB_MYSQL_USER'),
-            getenv('HBNB_MYSQL_PWD'),
-            getenv('HBNB_MYSQL_HOST'),
-            getenv('HBNB_MYSQL_DB')))
-        self.__models_available = {"User": User,
-                                   "Amenity": Amenity, "City": City,
-                                   "Place": Place, "Review": Review,
-                                   "State": State}
-        if getenv('HBNB_MYSQL_ENV', 'not') == 'test':
+        """Instantiate a DBStorage object"""
+        HBNB_MYSQL_USER = getenv('HBNB_MYSQL_USER')
+        HBNB_MYSQL_PWD = getenv('HBNB_MYSQL_PWD')
+        HBNB_MYSQL_HOST = getenv('HBNB_MYSQL_HOST')
+        HBNB_MYSQL_DB = getenv('HBNB_MYSQL_DB')
+        HBNB_ENV = getenv('HBNB_ENV')
+        self.__engine = create_engine('mysql+mysqldb://{}:{}@{}/{}'.
+                                      format(HBNB_MYSQL_USER,
+                                             HBNB_MYSQL_PWD,
+                                             HBNB_MYSQL_HOST,
+                                             HBNB_MYSQL_DB))
+        if HBNB_ENV == "test":
             Base.metadata.drop_all(self.__engine)
 
     def all(self, cls=None):
-        """
-        returns a dictionary of all the class objects
-        """
-        orm_objects = {}
-        if cls:
-            for k in self.__session.query(self.__models_available[cls]):
-                orm_objects[k.__dict__['id']] = k
-        else:
-            for i in self.__models_available.values():
-                j = self.__session.query(i).all()
-                if j:
-                    for k in j:
-                        orm_objects[k.__dict__['id']] = k
-        return orm_objects
+        """query on the current database session"""
+        new_dict = {}
+        for clss in classes:
+            if cls is None or cls is classes[clss] or cls is clss:
+                objs = self.__session.query(classes[clss]).all()
+                for obj in objs:
+                    key = obj.__class__.__name__ + '.' + obj.id
+                    new_dict[key] = obj
+        return (new_dict)
 
     def new(self, obj):
-        """
-        adds a new obj to the session
-        """
+        """add the object to the current database session"""
         self.__session.add(obj)
 
     def save(self):
-        """
-        saves the objects fom the current session
-        """
+        """commit all changes of the current database session"""
         self.__session.commit()
 
     def delete(self, obj=None):
-        """
-        deletes an object from the current session
-        """
+        """delete from the current database session obj if not None"""
         if obj is not None:
             self.__session.delete(obj)
-            self.save()
 
     def reload(self):
-        """
-        WARNING!!!! I'm not sure if Base.metadata.create_all needs to
-        be in the init method
-        """
+        """reloads data from the database"""
         Base.metadata.create_all(self.__engine)
-        self.__session = scoped_session(sessionmaker(bind=self.__engine,
-                                                     expire_on_commit=False))
+        sess_factory = sessionmaker(bind=self.__engine, expire_on_commit=False)
+        Session = scoped_session(sess_factory)
+        self.__session = Session
 
     def close(self):
-        """
-        close a session
-        """
+        """call remove() method on the private session attribute"""
         self.__session.remove()
 
     def get(self, cls, id):
         """
-        Get the specified object by class and id
+        Retrieve one object
+        @cls: class name
+        @id: string representing the object ID
+        Return: Object based on the class name and its ID, or None if not found
         """
-        obj = None
-        if cls:
-            get_cls = self.__models_available.get(cls)
-            if get_cls:
-                obj = self.__session.query(get_cls).filter_by(id=id).first()
+        obj = self.__session.query(cls).get(id)
+        if obj is None:
+            return None
         return obj
 
     def count(self, cls=None):
         """
-        Count the number of a given class in the database
+        Count the number of objects in storage:
+        @cls: class name
+        Return:
         """
-        orm_objects = {}
-        if cls:
-            for k in self.__session.query(self.__models_available[cls]):
-                orm_objects[k.__dict__['id']] = k
-        else:
-            for i in self.__models_available.values():
-                j = self.__session.query(i).all()
-                if j:
-                    for k in j:
-                        orm_objects[k.__dict__['id']] = k
-        return len(orm_objects)
+        objs = self.all(cls)
+        return (len(objs))
