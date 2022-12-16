@@ -1,25 +1,22 @@
 #!/usr/bin/python3
-""" This script handles returning JSON format of
-    certain variables """
-from flask import Flask, jsonify
-from api.v1.views import app_views
+"""Retrieves number for each type"""
+from flask import jsonify
 from models import storage
+from api.v1.views import app_views
 
 
-@app_views.route('/api/v1/status')
-def return_status():
-    """ Returns the status code OK in JSON format """
-    return {"status": "OK"}
-
-
-@app_views.route('/api/v1/stats', strict_slashes=False)
+@app_views.route("/status", strict_slashes=False)
 def status():
-    classes = {
-        'amenities': storage.count('Amenity'),
-        'cities': storage.count('City'),
-        'places': storage.count('Place'),
-        'reviews': storage.count('Review'),
-        'states': storage.count('State'),
-        'users': storage.count('User')
-    }
-    return jsonify(classes)
+    """Returns status"""
+    return jsonify({'status': 'OK'})
+
+
+@app_views.route("/stats", strict_slashes=False)
+def stats():
+    """Returns stats"""
+    return jsonify({"amenities": storage.count("Amenity"),
+                    "cities": storage.count("City"),
+                    "places": storage.count("Place"),
+                    "reviews": storage.count("Review"),
+                    "states": storage.count("State"),
+                    "users": storage.count("User")})
