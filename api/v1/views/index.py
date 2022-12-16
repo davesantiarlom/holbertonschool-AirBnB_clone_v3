@@ -1,32 +1,25 @@
 #!/usr/bin/python3
-"""Index"""
-from models import storage
+""" This script handles returning JSON format of
+    certain variables """
+from flask import Flask, jsonify
 from api.v1.views import app_views
-from flask import jsonify
-from models.amenity import Amenity
-from models.city import City
-from models.place import Place
-from models.review import Review
-from models.state import State
-from models.user import User
+from models import storage
 
 
-@app_views.route('/status', strict_slashes=False)
+@app_views.route('/api/v1/status')
+def return_status():
+    """ Returns the status code OK in JSON format """
+    return {"status": "OK"}
+
+
+@app_views.route('/api/v1/stats', strict_slashes=False)
 def status():
-    """ Status of API """
-    ok_status = {"status": "OK"}
-    return jsonify(ok_status)
-
-
-@app_views.route('/stats')
-def stats():
-    """
-        return dict count of data
-    """
-    my_dict = {"amenities": storage.count(Amenity),
-               "cities": storage.count(City),
-               "places": storage.count(Place),
-               "reviews": storage.count(Review),
-               "states": storage.count(State),
-               "users": storage.count(User)}
-    return jsonify(my_dict)
+    classes = {
+        'amenities': storage.count('Amenity'),
+        'cities': storage.count('City'),
+        'places': storage.count('Place'),
+        'reviews': storage.count('Review'),
+        'states': storage.count('State'),
+        'users': storage.count('User')
+    }
+    return jsonify(classes)
